@@ -1,8 +1,12 @@
+from ConfigParser import SafeConfigParser
 import logging
 
 from sleekxmpp import ClientXMPP
 from sleekxmpp.exceptions import IqError, IqTimeout
 
+# Load the config file
+cfgparser = SafeConfigParser()
+cfgparser.read('foosbot.cfg')
 
 class FoosBot(ClientXMPP):
 
@@ -42,8 +46,8 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG,
                         format='%(levelname)-8s %(message)s')
                         
-    # TODO 
-    # Get connection settings from config file
-    xmpp = FoosBot('login', 'password')
+    jid = cfgparser.get('Connection', 'jid')
+    password = cfgparser.get('Connection', 'password')
+    xmpp = FoosBot(jid, password)
     xmpp.connect(('talk.google.com', 5222))
     xmpp.process(block=True)
