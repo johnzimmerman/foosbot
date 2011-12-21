@@ -1,4 +1,5 @@
 from ConfigParser import SafeConfigParser
+import copy
 import logging
 import random
 
@@ -10,9 +11,10 @@ from sleekxmpp.exceptions import IqError, IqTimeout
 cfgparser = SafeConfigParser()
 cfgparser.read('foosbot.cfg')
 
-# Game configuration
-game_requested = False
-active_players = []
+def generate_teams(players):
+    players = copy.copy(players)
+    random.shuffle(players)
+    return players
 
 class FoosBot(ClientXMPP):
 
@@ -24,6 +26,10 @@ class FoosBot(ClientXMPP):
 
         self.register_plugin('xep_0030') # Service Discovery
         self.register_plugin('xep_0199') # XMPP Ping
+        
+        self.game_requested = False
+        self.registered_players = cfgparser.options('Players')
+        self.active_players = []
 
     def session_start(self, event):
         self.send_presence()
@@ -56,18 +62,46 @@ class FoosBot(ClientXMPP):
         player = cfgparser.get('Players', sender)
         body = str(msg["body"]).strip().lower()
         
-        if body == 'play' and game_requested == False:
+        if body == 'play' and self.game_requested == False:
             # Set game state to requested
-            game_requested = True
+            self.game_requested = True
             # Add requesting player to active players list
-            active_players.append(player)
+            #self.active_players.append(player)
+            self.active_players.append(sender)
             # Send message to other registered players
-            registered_players = cfgparser.options('Players')
-            for rp in registered_players:
+            for rp in self.registered_players:
                 self.send_message(mto=rp,
-                                  mbody='%s has challenged you to a game of f00sball!' % player,
+                                  mbody="""%s has challenged you to a game of table football!
+                                  Would you like to play? [y/n]""" % player,
                                   mtype='chat')
-            #msg.reply('Oh Hai, %s' % player).send()
+        elif body == 'play' and self.game_requested == True:
+            msg.reply('Oh hai, %s. Someone is currently looking for a game. \
+                      Would you like to play? [y/n]' % player).send()
+        elif body == 'y' and self.game_requested == True:
+            # Check for 4 players
+            if len(self.active_players) < 4:
+                # Add player to the list
+                #self.active_players.append(player)
+                self.active_players.append(sender)
+                if len(self.active_players) == 4:
+                    # Generate teams
+                    teams = generate_teams(self.active_players)
+                    # Notify players
+                    for teammate in teams:
+                        print '!!!!!! PAY ATTENTION !!!!!! %s' % teammate
+                        self.send_message(mto=teammate,
+                                          mbody='Gentlemen, teams are as follows:\n \
+                                          White team: %s and %s \n \
+                                          Red team: %s and %s \n \
+                                          Play on, playas!' % (cfgparser.get('Players', teams[0]),
+                                          cfgparser.get('Players', teams[1]),
+                                          cfgparser.get('Players', teams[2]),
+                                          cfgparser.get('Players', teams[3])),
+                                          mtype='chat')
+                    # Clear active players array and set game_requeste to false
+                    del self.active_players[:]
+                    self.game_requested = False
+                    
             
          
         #msg.reply("Thanks for sending me a message %(from)s\n%(body)s" % msg).send()
