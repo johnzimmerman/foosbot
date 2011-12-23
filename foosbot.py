@@ -6,7 +6,6 @@ import random
 from sleekxmpp import ClientXMPP
 from sleekxmpp.exceptions import IqError, IqTimeout
 
-
 # Load the config file
 cfgparser = SafeConfigParser()
 cfgparser.read('foosbot.cfg')
@@ -48,8 +47,7 @@ class FoosBot(ClientXMPP):
 
     def message(self, msg):
         if msg['type'] not in ('chat', 'normal'):
-            # TODO
-            # Add logging
+            # TODO Add logging
             return
             
         sender = str(msg["from"]).split("/")[0]
@@ -63,26 +61,30 @@ class FoosBot(ClientXMPP):
         body = str(msg["body"]).strip().lower()
         
         if body == 'play' and self.game_requested == False:
+            # TODO Check to see if 4 registered players are online
+            # TODO Create variable for game start time. Check each reply to make sure !> 5 min.
             # Set game state to requested
             self.game_requested = True
             # Add requesting player to active players list
-            #self.active_players.append(player)
             self.active_players.append(sender)
             # Send message to other registered players
             for rp in self.registered_players:
-                self.send_message(mto=rp,
-                                  mbody="""%s has challenged you to a game of table football!
-                                  Would you like to play? [y/n]""" % player,
-                                  mtype='chat')
+                if rp != sender:
+                    self.send_message(mto=rp,
+                                      mbody="""%s has challenged you to a game of table football! \
+                                      Would you like to play? [y/n]""" % player,
+                                      mtype='chat')
         elif body == 'play' and self.game_requested == True:
-            msg.reply('Oh hai, %s. Someone is currently looking for a game. \
+            msg.reply('Oh hai, %s. Someone is already looking for a game. \
                       Would you like to play? [y/n]' % player).send()
         elif body == 'y' and self.game_requested == True:
             # Check for 4 players
+            if sender in self.active_players:
+                msg.reply("Relax! I heard you the first time.").send()
             if len(self.active_players) < 4:
                 # Add player to the list
-                #self.active_players.append(player)
                 self.active_players.append(sender)
+                msg.reply("You're in! Waiting for %d more players..." % (4 - len(self.active_players))).send()
                 if len(self.active_players) == 4:
                     # Generate teams
                     teams = generate_teams(self.active_players)
@@ -90,10 +92,11 @@ class FoosBot(ClientXMPP):
                     for teammate in teams:
                         print '!!!!!! PAY ATTENTION !!!!!! %s' % teammate
                         self.send_message(mto=teammate,
-                                          mbody='Gentlemen, teams are as follows:\n \
-                                          White team: %s and %s \n \
-                                          Red team: %s and %s \n \
-                                          Play on, playas!' % (cfgparser.get('Players', teams[0]),
+                                          mbody="""
+                                          Here are the teams I came up with:
+                                          White team: %s and %s
+                                          Red team: %s and %s
+                                          Play on, playas!""" % (cfgparser.get('Players', teams[0]),
                                           cfgparser.get('Players', teams[1]),
                                           cfgparser.get('Players', teams[2]),
                                           cfgparser.get('Players', teams[3])),
@@ -102,8 +105,6 @@ class FoosBot(ClientXMPP):
                     del self.active_players[:]
                     self.game_requested = False
                     
-            
-         
         #msg.reply("Thanks for sending me a message %(from)s\n%(body)s" % msg).send()
     
 
