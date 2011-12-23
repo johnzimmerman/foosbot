@@ -81,6 +81,7 @@ class FoosBot(ClientXMPP):
             # Check for 4 players
             if sender in self.active_players:
                 msg.reply("Relax! I heard you the first time.").send()
+                return
             if len(self.active_players) < 4:
                 # Add player to the list
                 self.active_players.append(sender)
