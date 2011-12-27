@@ -1,10 +1,13 @@
 from ConfigParser import SafeConfigParser
 import copy
+import datetime
 import logging
 import random
 
 from sleekxmpp import ClientXMPP
 from sleekxmpp.exceptions import IqError, IqTimeout
+
+# TODO Add SQLite db and keep track of game stats
 
 # Load the config file
 cfgparser = SafeConfigParser()
@@ -27,6 +30,7 @@ class FoosBot(ClientXMPP):
         self.register_plugin('xep_0199') # XMPP Ping
         
         self.game_requested = False
+        self.game_requested_time = None
         self.registered_players = cfgparser.options('Players')
         self.active_players = []
 
@@ -62,26 +66,29 @@ class FoosBot(ClientXMPP):
         
         if body == 'play' and self.game_requested == False:
             # TODO Check to see if 4 registered players are online
-            # TODO Create variable for game start time. Check each reply to make sure !> 5 min.
             # Set game state to requested
             self.game_requested = True
+            self.game_requested_time = datetime.datetime.now()
             # Add requesting player to active players list
             self.active_players.append(sender)
+            msg.reply('Game requested. I will notify the others.').sent()
             # Send message to other registered players
             for rp in self.registered_players:
                 if rp != sender:
                     self.send_message(mto=rp,
-                                      mbody="""%s has challenged you to a game of table football! \
+                                      mbody="""%s has challenged you to a game of table football!
                                       Would you like to play? [y/n]""" % player,
                                       mtype='chat')
         elif body == 'play' and self.game_requested == True:
             msg.reply('Oh hai, %s. Someone is already looking for a game. \
                       Would you like to play? [y/n]' % player).send()
         elif body == 'y' and self.game_requested == True:
-            # Check for 4 players
+            # Do not allow a registered user to be added 
+            # more than once to a game
             if sender in self.active_players:
                 msg.reply("Relax! I heard you the first time.").send()
                 return
+            # Check for 4 players
             if len(self.active_players) < 4:
                 # Add player to the list
                 self.active_players.append(sender)
@@ -91,7 +98,6 @@ class FoosBot(ClientXMPP):
                     teams = generate_teams(self.active_players)
                     # Notify players
                     for teammate in teams:
-                        print '!!!!!! PAY ATTENTION !!!!!! %s' % teammate
                         self.send_message(mto=teammate,
                                           mbody="""
                                           Here are the teams I came up with:
