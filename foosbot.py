@@ -71,7 +71,7 @@ class FoosBot(ClientXMPP):
             self.game_requested_time = datetime.datetime.now()
             # Add requesting player to active players list
             self.active_players.append(sender)
-            msg.reply('Game requested. I will notify the others.').sent()
+            msg.reply('Game requested. I will notify the others.').send()
             # Send message to other registered players
             for rp in self.registered_players:
                 if rp != sender:
