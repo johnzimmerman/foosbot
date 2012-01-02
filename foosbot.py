@@ -3,17 +3,18 @@ import copy
 import datetime
 import logging
 import random
+import sqlite3
 
 from sleekxmpp import ClientXMPP
 from sleekxmpp.exceptions import IqError, IqTimeout
 
-# TODO Add SQLite db and keep track of game stats
 
 # Load the config file
 cfgparser = SafeConfigParser()
 cfgparser.read('foosbot.cfg')
 
 def generate_teams(players):
+    # TODO Add algorithm to create best matchup
     players = copy.copy(players)
     random.shuffle(players)
     return players
@@ -33,6 +34,7 @@ class FoosBot(ClientXMPP):
         self.game_requested_time = None
         self.registered_players = cfgparser.options('Players')
         self.active_players = []
+        self.state_machines = {}
 
     def session_start(self, event):
         self.send_presence()
@@ -55,65 +57,54 @@ class FoosBot(ClientXMPP):
             return
             
         sender = str(msg["from"]).split("/")[0]
-        
-        # Check if the person requesting the game is on the players list
-        if not cfgparser.has_option('Players', sender):
-            msg.reply('I\'m sorry, but I don\'t recognize you.').send()
-            return
-            
-        player = cfgparser.get('Players', sender)
         body = str(msg["body"]).strip().lower()
+        print "!!! PAY ATTENTION !!! %s" % body
         
-        if body == 'play' and self.game_requested == False:
-            # TODO Check to see if 4 registered players are online
-            # Set game state to requested
-            self.game_requested = True
-            self.game_requested_time = datetime.datetime.now()
-            # Add requesting player to active players list
-            self.active_players.append(sender)
-            msg.reply('Game requested. I will notify the others.').send()
-            # Send message to other registered players
-            for rp in self.registered_players:
-                if rp != sender:
-                    self.send_message(mto=rp,
-                                      mbody="""%s has challenged you to a game of table football!
-                                      Would you like to play? [y/n]""" % player,
-                                      mtype='chat')
-        elif body == 'play' and self.game_requested == True:
-            msg.reply('Oh hai, %s. Someone is already looking for a game. \
-                      Would you like to play? [y/n]' % player).send()
-        elif body == 'y' and self.game_requested == True:
-            # Do not allow a registered user to be added 
-            # more than once to a game
-            if sender in self.active_players:
-                msg.reply("Relax! I heard you the first time.").send()
-                return
-            # Check for 4 players
-            if len(self.active_players) < 4:
-                # Add player to the list
-                self.active_players.append(sender)
-                msg.reply("You're in! Waiting for %d more players..." % (4 - len(self.active_players))).send()
-                if len(self.active_players) == 4:
-                    # Generate teams
-                    teams = generate_teams(self.active_players)
-                    # Notify players
-                    for teammate in teams:
-                        self.send_message(mto=teammate,
-                                          mbody="""
-                                          Here are the teams I came up with:
-                                          White team: %s and %s
-                                          Red team: %s and %s
-                                          Play on, playas!""" % (cfgparser.get('Players', teams[0]),
-                                          cfgparser.get('Players', teams[1]),
-                                          cfgparser.get('Players', teams[2]),
-                                          cfgparser.get('Players', teams[3])),
-                                          mtype='chat')
-                    # Clear active players array and set game_requeste to false
-                    del self.active_players[:]
-                    self.game_requested = False
-                    
+        game_creator = self.state_machines.get(sender)
+        if not game_creator: 
+            self.state_machines[sender] = GameCreator(sender)
+            game_creator = self.state_machines.get(sender)
+        reply = game_creator.handle_message(sender, body)
+        
+        msg.reply(reply).send()        
         #msg.reply("Thanks for sending me a message %(from)s\n%(body)s" % msg).send()
+
+class GameCreator(object):
     
+    def __init__(self, player):
+        self.player_status = "new"
+        
+    def handle_message(self, sender, message):
+        if self.player_status == "new":
+            reply = ("Hi, I'm FoosBot. I don't believe we've met. "
+            "I organize games of foosball and keep track of stats. "
+            "Would you like to register and be notified when someone "
+            "requests a game?")
+            self.player_status = "registration"
+        elif self.player_status == "registration":
+            if message == "yes":
+                reply = ("Great! I just need to know your name. What should "
+                "I call you?")
+                self.player_status = "waiting for name"
+            elif message == "no": 
+                reply = "That's okay. Maybe some other time."
+                self.player_status = "new"
+            else: 
+                reply = ("I'm sorry, I don't understand. Please respond "
+                "with 'yes' or 'no'.")
+        elif self.player_status == "waiting for name":
+            conn = sqlite3.connect('./data.db')
+            t = (message, sender)
+            cursor = conn.cursor()
+            cursor.execute("insert into player (name, jabber_id) values (?, ?)" , t)
+            conn.commit()
+            reply = "Thanks %s. You have been successfully added to my \
+            database." % message
+            self.player_status = "active"
+
+        return reply
+        
+            
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG,
