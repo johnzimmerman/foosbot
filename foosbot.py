@@ -2,22 +2,14 @@ from ConfigParser import SafeConfigParser
 import copy
 import datetime
 import logging
+import Queue
 import random
 import sqlite3
+import threading
 
 from sleekxmpp import ClientXMPP
 from sleekxmpp.exceptions import IqError, IqTimeout
 
-
-# Load the config file
-cfgparser = SafeConfigParser()
-cfgparser.read('foosbot.cfg')
-
-def generate_teams(players):
-    # TODO Add algorithm to create best matchup
-    players = copy.copy(players)
-    random.shuffle(players)
-    return players
 
 class FoosBot(ClientXMPP):
 
@@ -32,7 +24,6 @@ class FoosBot(ClientXMPP):
         
         self.game_requested = False
         self.game_requested_time = None
-        self.registered_players = cfgparser.options('Players')
         self.active_players = []
         self.state_machines = {}
 
@@ -58,7 +49,6 @@ class FoosBot(ClientXMPP):
             
         sender = str(msg["from"]).split("/")[0]
         body = str(msg["body"]).strip().lower()
-        print "!!! PAY ATTENTION !!! %s" % body
         
         game_creator = self.state_machines.get(sender)
         if not game_creator: 
@@ -93,23 +83,69 @@ class GameCreator(object):
                 reply = ("I'm sorry, I don't understand. Please respond "
                 "with 'yes' or 'no'.")
         elif self.player_status == "waiting for name":
-            conn = sqlite3.connect('./data.db')
             t = (message, sender)
-            cursor = conn.cursor()
-            cursor.execute("insert into player (name, jabber_id) values (?, ?)" , t)
-            conn.commit()
-            reply = "Thanks %s. You have been successfully added to my \
-            database." % message
+            queue.put(("insert into player (name, jabber_id) values (?, ?)", t))
+            reply = ("Thanks %s. You've been successfully added to my database "
+            "Please type 'help' to see a list of commands.") % message
             self.player_status = "active"
+        elif self.player_status == "active":
+            # Commands an active player can perform
+            if message == "help":
+                reply = ("I understand the following commands:\n"
+                "help - Displays this menu\n"
+                "play - Requests a game of foosball allowing you to set a time delay and wager\n"
+                "quickplay - Requests a game of foosball instantly with no wager\n"
+                "retire - Remove yourself from the active roster and disable notifications (your stats are not lost)\n"
+                "unretire - Get back in the game!\n")
+            elif message == "play":
+                reply = "I'm sorry, but this feature hasn't been programmed yet."
+            elif message == "quickplay":
+                reply = "I'm sorry, but this feature hasn't been programmed yet."
+            elif message == "retire":
+                t = (player,)
+                queue.put(("update player set is_active=0 where jabber_id='?'", t))
+                self.player_status = "retired"
+                reply = ("You have been removed from the active roster and "
+                "will no longer receive notifications when games are "
+                "requested. Pull a Brett Favre and unretire at any time by "
+                "sending me the message 'unretire'")
+                
+        return reply 
 
-        return reply
-        
-            
 
+def db_thread(queue):
+    conn = sqlite3.connect('./data_working.db')
+
+    def db_query(query, args):
+        cur = conn.cursor()
+        cur.execute(query, args)
+        print "DEBUG AFTER: query = %s args = %s" % (query, args)
+        conn.commit()
+
+    while True:
+        query, args = queue.get()
+        print "DEBUG BEFORE: query = %s args = %s" % (query, args)
+        db_query(query, args)
+
+
+def generate_teams(players):
+    # TODO Add algorithm to create best matchup
+    players = copy.copy(players)
+    random.shuffle(players)
+    return players
+    
+    
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG,
                         format='%(levelname)-8s %(message)s')
-                        
+
+    # Load the config file
+    cfgparser = SafeConfigParser()
+    cfgparser.read('foosbot.cfg')
+    
+    queue = Queue.Queue()
+    threading.Thread(target=db_thread, args=(queue,)).start()                          
+
     jid = cfgparser.get('Connection', 'jid')
     password = cfgparser.get('Connection', 'password')
     
