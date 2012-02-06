@@ -84,7 +84,7 @@ class GameCreator(object):
                 "with 'yes' or 'no'.")
         elif self.player_status == "waiting for name":
             t = (message, sender)
-            queue.put(("insert into player (name, jabber_id) values (?, ?)", t))
+            db_query("insert into player (name, jabber_id) values (?, ?)", t)
             reply = ("Thanks %s. You've been successfully added to my database "
             "Please type 'help' to see a list of commands.") % message
             self.player_status = "active"
@@ -112,21 +112,16 @@ class GameCreator(object):
                 
         return reply 
 
-
-def db_thread(queue):
+def db_query(query, args):
     conn = sqlite3.connect('./data_working.db')
+    
+    try:
+        with conn:
+            conn.execute(query, args)
+    except sqlite3.IntegrityError:
+        print "!! ERROR ERROR ERROR !!"
 
-    def db_query(query, args):
-        cur = conn.cursor()
-        cur.execute(query, args)
-        print "DEBUG AFTER: query = %s args = %s" % (query, args)
-        conn.commit()
-
-    while True:
-        query, args = queue.get()
-        print "DEBUG BEFORE: query = %s args = %s" % (query, args)
-        db_query(query, args)
-
+    conn.close()
 
 def generate_teams(players):
     # TODO Add algorithm to create best matchup
@@ -143,12 +138,9 @@ if __name__ == '__main__':
     cfgparser = SafeConfigParser()
     cfgparser.read('foosbot.cfg')
     
-    queue = Queue.Queue()
-    threading.Thread(target=db_thread, args=(queue,)).start()                          
-
     jid = cfgparser.get('Connection', 'jid')
     password = cfgparser.get('Connection', 'password')
-    
+
     xmpp = FoosBot(jid, password)
     xmpp.connect(('talk.google.com', 5222))
     xmpp.process(block=True)
