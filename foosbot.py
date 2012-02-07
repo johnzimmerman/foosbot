@@ -21,8 +21,9 @@ class FoosBot(ClientXMPP):
         self.register_plugin('xep_0199') # XMPP Ping
         
         self.game_requested = False
-        self.game_requested_time = None
-        self.active_players = []
+        self.quick_game_requested = False
+        self.active_players = {}
+        self.match_players = []
         self.state_machines = {}
 
     def session_start(self, event):
@@ -49,6 +50,7 @@ class FoosBot(ClientXMPP):
         body = str(msg["body"]).strip().lower()
         
         game_creator = self.state_machines.get(sender)
+        
         if not game_creator: 
             self.state_machines[sender] = GameCreator(sender)
             game_creator = self.state_machines.get(sender)
@@ -57,25 +59,28 @@ class FoosBot(ClientXMPP):
         msg.reply(reply).send()        
         #msg.reply("Thanks for sending me a message %(from)s\n%(body)s" % msg).send()
 
+
 class GameCreator(object):
     
     def __init__(self, player):
         # Check for existing user on object creation and set appropriate status
         t = (player, )
         result = db_query("select is_active from player where jabber_id = ?", t, "read")
-        if result[0] == 1:
+        if result[0][0] == 1:
             self.player_status = "active"
-        elif result[0] == 0:
+        elif result[0][0] == 0:
             self.player_status = "retired"
         else:
             self.player_status = "new"
+
         
     def handle_message(self, sender, message):
+        # Player registration
         if self.player_status == "new":
             reply = ("Hi, I'm FoosBot. I don't believe we've met. "
-            "I organize games of foosball and keep track of stats. "
-            "Would you like to register and be notified when someone "
-            "requests a game?")
+                     "I organize games of foosball and keep track of stats. "
+                     "Would you like to register and be notified when "
+                     "someone requests a game?")
             self.player_status = "registration"
         elif self.player_status == "registration":
             if message == "yes":
@@ -97,32 +102,45 @@ class GameCreator(object):
             else:
                 reply = "I'm sorry, something bad has happened. Please contact the bot administrator."
             self.player_status = "active"
+        
+        # Commands an active player can perform
         elif self.player_status == "active":
-            # Commands an active player can perform
             if message == "help":
                 reply = ("I understand the following commands:\n"
-                "help - Displays this menu\n"
-                "play - Requests a game of foosball allowing you to set a time delay and wager\n"
-                "quickplay - Requests a game of foosball instantly with no wager\n"
-                "retire - Remove yourself from the active roster and disable notifications (your stats are not lost)\n"
-                "unretire - Get back in the game!\n")
+                         "help - Displays this menu\n"
+                         "play - Requests a game of foosball allowing you to set a time delay and wager\n"
+                         "quickplay - Requests a game of foosball instantly with no wager\n"
+                         "retire - Remove yourself from the active roster and disable notifications (your stats are not lost)\n"
+                         "unretire - Get back in the game!\n")
             elif message == "play":
                 reply = "I'm sorry, but this feature hasn't been programmed yet."
-            elif message == "quickplay":
+            elif message == "quickplay" and bot.quick_game_requested == False:
+                t = (1, )
+                result = db_query("select jabber_id, name from player where is_active = ?", t, "read")
+                for row in result:
+                    bot.active_players[row[0]] = row[1]
+                bot.quick_game_requested == True
+                for player in bot.active_players:
+                    #if player != sender: !!! REMOVE THIS COMMENT LATER !!!
+                        bot.send_message(mto = player,
+                                         mbody=("%s has challeneged you to a "
+                                                "game of table football!") % bot.active_players[sender],
+                                         mtype='chat')
                 reply = "I'm sorry, but this feature hasn't been programmed yet."
             elif message == "retire":
                 t = (player,)
-                queue.put(("update player set is_active=0 where jabber_id='?'", t))
+                db_query("update player set is_active = 0 where jabber_id='?'", t, "write")
                 self.player_status = "retired"
                 reply = ("You have been removed from the active roster and "
-                "will no longer receive notifications when games are "
-                "requested. Pull a Brett Favre and unretire at any time by "
-                "sending me the message 'unretire'")
+                         "will no longer receive notifications when games are "
+                         "requested. Pull a Brett Favre and unretire at any time by "
+                         "sending me the message 'unretire'")
             else:
                 reply = ("I'm sorry, I dont understand. Please type 'help' "
                          "for a list of commands.")
                 
         return reply 
+
 
 def db_query(query, args, query_type):
     try:
@@ -133,11 +151,11 @@ def db_query(query, args, query_type):
             con.commit()
             return "success"
         else:
-            row = cur.fetchone()
-            if row == None:
+            rows = cur.fetchall()
+            if rows == None:
                 return "failure"
             else:
-                return row
+                return rows
     except sqlite3.Error:
         if con:
             con.rollback()
@@ -161,9 +179,11 @@ if __name__ == '__main__':
     cfgparser = SafeConfigParser()
     cfgparser.read('foosbot.cfg')
     
+    # Set connection settings
     jid = cfgparser.get('Connection', 'jid')
     password = cfgparser.get('Connection', 'password')
 
-    xmpp = FoosBot(jid, password)
-    xmpp.connect(('talk.google.com', 5222))
-    xmpp.process(block=True)
+    # Launch bot
+    bot = FoosBot(jid, password)
+    bot.connect(('talk.google.com', 5222))
+    bot.process(block=True)
