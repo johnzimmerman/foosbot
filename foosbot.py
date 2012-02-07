@@ -2,10 +2,8 @@ from ConfigParser import SafeConfigParser
 import copy
 import datetime
 import logging
-import Queue
 import random
 import sqlite3
-import threading
 
 from sleekxmpp import ClientXMPP
 from sleekxmpp.exceptions import IqError, IqTimeout
@@ -62,7 +60,14 @@ class FoosBot(ClientXMPP):
 class GameCreator(object):
     
     def __init__(self, player):
-        self.player_status = "new"
+        t = (player, )
+        result = db_query("select is_active from player where jabber_id = ?", t, "read")
+        if result[0] == 1:
+            self.player_status = "active"
+        elif result[0] == 0:
+            self.player_status = "retired"
+        else:
+            self.player_status = "new"
         
     def handle_message(self, sender, message):
         if self.player_status == "new":
@@ -84,9 +89,12 @@ class GameCreator(object):
                 "with 'yes' or 'no'.")
         elif self.player_status == "waiting for name":
             t = (message, sender)
-            db_query("insert into player (name, jabber_id) values (?, ?)", t)
-            reply = ("Thanks %s. You've been successfully added to my database "
-            "Please type 'help' to see a list of commands.") % message
+            result = db_query("insert into player (name, jabber_id) values (?, ?)", t, "write")
+            if result == 'success':
+                reply = ("Thanks %s. You've been successfully added to my database "
+                         "Please type 'help' to see a list of commands.") % message
+            else:
+                reply = "I'm sorry, something bad has happened. Please contact the bot administrator."
             self.player_status = "active"
         elif self.player_status == "active":
             # Commands an active player can perform
@@ -112,16 +120,26 @@ class GameCreator(object):
                 
         return reply 
 
-def db_query(query, args):
-    conn = sqlite3.connect('./data_working.db')
-    
+def db_query(query, args, query_type):
     try:
-        with conn:
-            conn.execute(query, args)
-    except sqlite3.IntegrityError:
-        print "!! ERROR ERROR ERROR !!"
+        con = sqlite3.connect('./data_working.db')
+        cur = con.cursor() 
+        cur.execute(query, args)
+        if query_type == 'write':
+            con.commit()
+            return "success"
+        else:
+            row = cur.fetchone()
+            return row
 
-    conn.close()
+    except sqlite3.Error:
+        if con:
+            con.rollback()
+            return "failure"
+
+    finally:
+        if con:
+            con.close()
 
 def generate_teams(players):
     # TODO Add algorithm to create best matchup
