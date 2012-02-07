@@ -60,6 +60,7 @@ class FoosBot(ClientXMPP):
 class GameCreator(object):
     
     def __init__(self, player):
+        # Check for existing user on object creation and set appropriate status
         t = (player, )
         result = db_query("select is_active from player where jabber_id = ?", t, "read")
         if result[0] == 1:
@@ -79,14 +80,14 @@ class GameCreator(object):
         elif self.player_status == "registration":
             if message == "yes":
                 reply = ("Great! I just need to know your name. What should "
-                "I call you?")
+                         "I call you?")
                 self.player_status = "waiting for name"
             elif message == "no": 
                 reply = "That's okay. Maybe some other time."
                 self.player_status = "new"
             else: 
                 reply = ("I'm sorry, I don't understand. Please respond "
-                "with 'yes' or 'no'.")
+                         "with 'yes' or 'no'.")
         elif self.player_status == "waiting for name":
             t = (message, sender)
             result = db_query("insert into player (name, jabber_id) values (?, ?)", t, "write")
@@ -117,6 +118,9 @@ class GameCreator(object):
                 "will no longer receive notifications when games are "
                 "requested. Pull a Brett Favre and unretire at any time by "
                 "sending me the message 'unretire'")
+            else:
+                reply = ("I'm sorry, I dont understand. Please type 'help' "
+                         "for a list of commands.")
                 
         return reply 
 
@@ -130,13 +134,14 @@ def db_query(query, args, query_type):
             return "success"
         else:
             row = cur.fetchone()
-            return row
-
+            if row == None:
+                return "failure"
+            else:
+                return row
     except sqlite3.Error:
         if con:
             con.rollback()
             return "failure"
-
     finally:
         if con:
             con.close()
