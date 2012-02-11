@@ -20,8 +20,7 @@ class FoosBot(ClientXMPP):
         self.register_plugin('xep_0030') # Service Discovery
         self.register_plugin('xep_0199') # XMPP Ping
         
-        self.game_requested = False
-        self.quick_game_requested = False
+        self.match_requested = False
         self.active_players = {}
         self.match_players = []
         self.state_machines = {}
@@ -51,7 +50,7 @@ class FoosBot(ClientXMPP):
         
         game_creator = self.state_machines.get(sender)
         
-        if not game_creator: 
+        if not game_creator:
             self.state_machines[sender] = GameCreator(sender)
             game_creator = self.state_machines.get(sender)
         reply = game_creator.handle_message(sender, body)
@@ -66,10 +65,11 @@ class GameCreator(object):
         # Check for existing user on object creation and set appropriate status
         t = (player, )
         result = db_query("select is_active from player where jabber_id = ?", t, "read")
-        if result[0][0] == 1:
-            self.player_status = "active"
-        elif result[0][0] == 0:
-            self.player_status = "retired"
+        if len(result) >= 1:
+            if result[0][0] == 1:
+                self.player_status = "active"
+            elif result[0][0] == 0:
+                self.player_status = "retired"
         else:
             self.player_status = "new"
 
@@ -114,12 +114,13 @@ class GameCreator(object):
                          "unretire - Get back in the game!\n")
             elif message == "play":
                 reply = "I'm sorry, but this feature hasn't been programmed yet."
-            elif message == "quickplay" and bot.quick_game_requested == False:
+            elif message == "quickplay" and bot.match_requested == False:
+                bot.match_requested = True
+                bot.match_players.append(sender)
                 t = (1, )
                 result = db_query("select jabber_id, name from player where is_active = ?", t, "read")
                 for row in result:
                     bot.active_players[row[0]] = row[1]
-                bot.quick_game_requested == True
                 for player in bot.active_players:
                     #if player != sender: !!! REMOVE THIS COMMENT LATER !!!
                         bot.send_message(mto = player,
@@ -127,6 +128,22 @@ class GameCreator(object):
                                                 "game of table football!") % bot.active_players[sender],
                                          mtype='chat')
                 reply = "I'm sorry, but this feature hasn't been programmed yet."
+            elif message == 'y' and bot.match_requested == True:
+                # Do not allow a registered user to be added more than once
+                #if sender in bot.match_players:
+                    # The following message won't be sent. FIX LATER
+                #    reply = "You are already playing in the next match."
+                #    return
+                # Check for 4 players
+                print "!!! DEBUG !!!"
+                print bot.match_players 
+                print len(bot.match_players)  
+                if len(bot.match_players) < 4:
+                    bot.match_players.append(sender)
+                if len(bot.match_players) == 4:
+                    # Generate teams
+                    teams = generate_teams(bot.match_players)
+                reply = "generic reply"
             elif message == "retire":
                 t = (player,)
                 db_query("update player set is_active = 0 where jabber_id='?'", t, "write")
@@ -168,6 +185,7 @@ def generate_teams(players):
     # TODO Add algorithm to create best matchup
     players = copy.copy(players)
     random.shuffle(players)
+    # Check if team exists in the DB
     return players
     
     
