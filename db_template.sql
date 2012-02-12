@@ -8,10 +8,10 @@ CREATE TABLE game (
 );
 CREATE TABLE "match" (
   id               integer PRIMARY KEY AUTOINCREMENT NOT NULL UNIQUE,
-  "datetime"       datetime NOT NULL,
+  match_datetime   datetime NOT NULL,
   team1_id         integer NOT NULL,
   team2_id         integer NOT NULL,
-  is_bet           bool,
+  is_bet           bool DEFAULT 0,
   bet              varchar
 );
 CREATE TABLE team (

@@ -62,14 +62,20 @@ class FoosBot(ClientXMPP):
 class GameCreator(object):
     
     def __init__(self, player):
+        # Game creator variables
+        self.player_status = None
+        self.player_id = None
+
         # Check for existing user on object creation and set appropriate status
         t = (player, )
-        result = db_query("select is_active from player where jabber_id = ?", t, "read")
+        result = db_query("select id, is_active from player where jabber_id = ?", t, "read")
+ 
         if len(result) >= 1:
-            if result[0][0] == 1:
+            if result[0][1] == 1:
                 self.player_status = "active"
-            elif result[0][0] == 0:
+            else:
                 self.player_status = "retired"
+            self.player_id = result[0][0]
         else:
             self.player_status = "new"
 
@@ -97,8 +103,11 @@ class GameCreator(object):
             t = (message, sender)
             result = db_query("insert into player (name, jabber_id) values (?, ?)", t, "write")
             if result == 'success':
-                reply = ("Thanks %s. You've been successfully added to my database "
+                reply = ("Thanks %s. You've been successfully added to my database. "
                          "Please type 'help' to see a list of commands.") % message
+                t = (sender, )
+                result = db_query("select id from player where jabber_id = ?", t, "read")
+                self.player_id = result[0][0]
             else:
                 reply = "I'm sorry, something bad has happened. Please contact the bot administrator."
             self.player_status = "active"
@@ -112,11 +121,13 @@ class GameCreator(object):
                          "quickplay - Requests a game of foosball instantly with no wager\n"
                          "retire - Remove yourself from the active roster and disable notifications (your stats are not lost)\n"
                          "unretire - Get back in the game!\n")
+            
             elif message == "play":
                 reply = "I'm sorry, but this feature hasn't been programmed yet."
+            
             elif message == "quickplay" and bot.match_requested == False:
                 bot.match_requested = True
-                bot.match_players.append(sender)
+                bot.match_players.append({'id' : self.player_id, 'jabber_id' : sender })
                 t = (1, )
                 result = db_query("select jabber_id, name from player where is_active = ?", t, "read")
                 for row in result:
@@ -128,22 +139,38 @@ class GameCreator(object):
                                                 "game of table football!") % bot.active_players[sender],
                                          mtype='chat')
                 reply = "I'm sorry, but this feature hasn't been programmed yet."
+            
             elif message == 'y' and bot.match_requested == True:
-                # Do not allow a registered user to be added more than once
-                #if sender in bot.match_players:
-                    # The following message won't be sent. FIX LATER
-                #    reply = "You are already playing in the next match."
-                #    return
-                # Check for 4 players
-                print "!!! DEBUG !!!"
-                print bot.match_players 
-                print len(bot.match_players)  
+                #Do not allow a registered user to be added more than once
+                if sender in bot.match_players:
+                    #The following message won't be sent. FIX LATER
+                   reply = "You are already playing in the next match."
+                   return
+                Check for 4 players 
                 if len(bot.match_players) < 4:
-                    bot.match_players.append(sender)
+                    bot.match_players.append({'id' : self.player_id, 'jabber_id' : sender })
                 if len(bot.match_players) == 4:
                     # Generate teams
-                    teams = generate_teams(bot.match_players)
+                    match_data = create_match(bot.match_players)
+                    for teammate in match_data['teams']:
+                        bot.send_message(mto=teammate,
+                                          mbody=("Match %s has been created "
+                                          "with the following teams:\n" 
+                                          "White team: %s and %s\nVS\n"
+                                          "Red team: %s and %s\n"
+                                          "Good luck.") % 
+                                          ([match_data['match_id']],
+                                          bot.active_players[match_data['teams'][0]],
+                                          bot.active_players[match_data['teams'][1]],
+                                          bot.active_players[match_data['teams'][2]],
+                                          bot.active_players[match_data['teams'][3]],),
+                                          mtype='chat')
+                    # Clear active players array and set game_requeste to false
+                    del bot.active_players[:]
+                    bot.match_requested = False
+
                 reply = "generic reply"
+            
             elif message == "retire":
                 t = (player,)
                 db_query("update player set is_active = 0 where jabber_id='?'", t, "write")
@@ -161,7 +188,7 @@ class GameCreator(object):
 
 def db_query(query, args, query_type):
     try:
-        con = sqlite3.connect('./data_working.db')
+        con = sqlite3.connect('./data.db')
         cur = con.cursor() 
         cur.execute(query, args)
         if query_type == 'write':
@@ -181,12 +208,52 @@ def db_query(query, args, query_type):
         if con:
             con.close()
 
-def generate_teams(players):
+def create_match(players):
     # TODO Add algorithm to create best matchup
+    # Generate teams
     players = copy.copy(players)
     random.shuffle(players)
-    # Check if team exists in the DB
-    return players
+
+    p1 = players[0]['id'] 
+    p2 = players[1]['id']
+    p3 = players[2]['id']
+    p4 = players[3]['id']
+    match_query_data = []
+
+    for t in [(p1, p2, p1, p2), (p3, p4, p3, p4)]:
+        # Check if team exists in the DB
+        result = db_query("select id from team where (player1_id = ? OR player2_id = ?) AND (player1_id = ? OR player2_id = ?)", t, "read")    
+        # Get team ID if yes
+        if len(result) >= 1:
+            match_query_data.append(result[0][0])
+        # Create team ID and then get newly created ID
+        else:
+            t2 = t[0:2]
+            db_query("insert into team (player1_id, player2_id) values (?, ?)", t2, "write")
+            result = db_query("select id from team where (player1_id = ? OR player2_id = ?) AND (player1_id = ? OR player2_id = ?)", t, "read")
+            match_query_data.append(result[0][0])
+
+    # Create a match
+    match_time = datetime.datetime.now()
+    match_query_data.append(match_time)
+
+    # Convert match_query_data into a tuple to be used in query
+    match_query_data = tuple(match_query_data)
+    result = db_query("insert into match (team1_id, team2_id, match_datetime) values (?, ?, ?)", match_query_data, "write")
+
+    t = (match_time,)
+    match_id = db_query("select id from match where match_datetime = ?", t, "read")[0][0]
+    print "-------------- DEBUG --------------"
+    print players
+    print "-------------- DEBUG --------------"
+    
+    match_data = {
+        'match_id' : match_id,
+        'teams' : [players[0]['jabber_id'], players[1]['jabber_id'],
+                   players[2]['jabber_id'], players[3]['jabber_id']]
+    }
+    
+    return match_data
     
     
 if __name__ == '__main__':
@@ -195,7 +262,7 @@ if __name__ == '__main__':
 
     # Load the config file
     cfgparser = SafeConfigParser()
-    cfgparser.read('foosbot.cfg')
+    cfgparser.read('settings.cfg')
     
     # Set connection settings
     jid = cfgparser.get('Connection', 'jid')
