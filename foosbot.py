@@ -9,38 +9,46 @@ from sleekxmpp import ClientXMPP
 from sleekxmpp.exceptions import IqError, IqTimeout
 
 
-class FoosBot(ClientXMPP):
-
+class FoosBot(object):
     def __init__(self, jid, password):
-        ClientXMPP.__init__(self, jid, password)
+        # we set this as an attribute instead of sublcassing because many
+        # of ClientXMPP's attributes are named something we might accidentally
+        # overrite (breaking ClientXMPP).  it's happened to me quite a bit
+        self.xmpp = ClientXMPP(jid, password)
+    
+        self.xmpp.add_event_handler("session_start", self._session_start_handler)
+        self.xmpp.add_event_handler("message", self._message_handler)
 
-        self.add_event_handler("session_start", self.session_start)
-        self.add_event_handler("message", self.message)
-
-        self.register_plugin('xep_0030') # Service Discovery
-        self.register_plugin('xep_0199') # XMPP Ping
+        self.xmpp.register_plugin('xep_0030') # Service Discovery
+        self.xmpp.register_plugin('xep_0199') # XMPP Ping
         
         self.match_requested = False
         self.active_players = {}
         self.match_players = []
         self.state_machines = {}
 
-    def session_start(self, event):
-        self.send_presence()
+
+    def start(self):
+        self.xmpp.connect(('talk.google.com', 5222))
+        self.xmpp.process(block=True)
+
+    def _session_start_handler(self, event):
+        self.xmpp.send_presence()
 
         # Most get_*/set_* methods from plugins use Iq stanzas, which
         # can generate IqError and IqTimeout exceptions
         try:
-            self.get_roster()
+            self.xmpp.get_roster()
         except IqError as err:
             logging.error('There was an error getting the roster')
             logging.error(err.iq['error']['condition'])
-            self.disconnect()
+            self.xmpp.disconnect()
         except IqTimeout:
             logging.error('Server is taking too long to respond')
-            self.disconnect()
+            self.xmpp.disconnect()
 
-    def message(self, msg):
+
+    def _message_handler(self, msg):
         if msg['type'] not in ('chat', 'normal'):
             # TODO Add logging
             return
@@ -53,10 +61,10 @@ class FoosBot(ClientXMPP):
         if not game_creator:
             self.state_machines[sender] = GameCreator(sender)
             game_creator = self.state_machines.get(sender)
+
         reply = game_creator.handle_message(sender, body)
-        
         msg.reply(reply).send()        
-        #msg.reply("Thanks for sending me a message %(from)s\n%(body)s" % msg).send()
+
 
 
 class GameCreator(object):
@@ -130,8 +138,10 @@ class GameCreator(object):
                 bot.match_players.append({'id' : self.player_id, 'jabber_id' : sender })
                 t = (1, )
                 result = db_query("select jabber_id, name from player where is_active = ?", t, "read")
+
                 for row in result:
                     bot.active_players[row[0]] = row[1]
+
                 for player in bot.active_players:
                     #if player != sender: !!! REMOVE THIS COMMENT LATER !!!
                         bot.send_message(mto = player,
@@ -146,7 +156,7 @@ class GameCreator(object):
                     #The following message won't be sent. FIX LATER
                    reply = "You are already playing in the next match."
                    return
-                Check for 4 players 
+                # Check for 4 players 
                 if len(bot.match_players) < 4:
                     bot.match_players.append({'id' : self.player_id, 'jabber_id' : sender })
                 if len(bot.match_players) == 4:
@@ -270,5 +280,4 @@ if __name__ == '__main__':
 
     # Launch bot
     bot = FoosBot(jid, password)
-    bot.connect(('talk.google.com', 5222))
-    bot.process(block=True)
+    bot.start()
