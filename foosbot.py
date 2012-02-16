@@ -67,7 +67,9 @@ class FoosBot(object):
 
 
     def send(self, to, message):
-        self.xmpp.send_message(mto=to, mbody=message, mtype='chat')
+        if not isinstance(to, (tuple, list)): to = [to]
+        for player in to:
+            self.xmpp.send_message(mto=to, mbody=message, mtype='chat')
 
 
 
@@ -168,17 +170,17 @@ class GameCreator(object):
                     teams = match_data['teams']
                     ap = bot.active_players
                     
-                    for teammate in teams:
-                        msg = "Match %s has been created with the following \
-                        teams:\n White team: %s and %s\nVS\nRed team: %s and \
-                        %s\nGood luck." % (
-                            match_data['match_id'],
-                            ap[teams[0]],
-                            ap[teams[1]],
-                            ap[teams[2]],
-                            ap[teams[3]]
-                        )
-                        bot.send(teammate, msg)
+                    msg = "Match %s has been created with the following \
+                    teams:\n White team: %s and %s\nVS\nRed team: %s and \
+                    %s\nGood luck." % (
+                        match_data['match_id'],
+                        ap[teams[0]],
+                        ap[teams[1]],
+                        ap[teams[2]],
+                        ap[teams[3]]
+                    )
+                    bot.send(teams, msg)
+                    
                     # Clear active players array and set game_requeste to false
                     del bot.active_players[:]
                     bot.match_requested = False
