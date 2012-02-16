@@ -5,13 +5,29 @@ import logging
 import random
 import sqlite3
 from os.path import abspath, join, dirname
-from string import Template
+from string import Template as StringTemplate
 
 from sleekxmpp import ClientXMPP
 from sleekxmpp.exceptions import IqError, IqTimeout
 
 
 THIS_DIR = dirname(abspath(__file__))
+
+
+
+
+class Template(object):
+    def __init__(self, name, *args, **kwargs):
+        self.tmpl = self.get_template(name)
+        self.text = self.tmpl.safe_substitute(*args, **kwargs)
+    
+    def get_template(self, name):
+        with open(join(THIS_DIR, "templates", name+".tmpl"), "r") as h:
+            tmpl = StringTemplate(h.read())
+        return tmpl
+    
+    def __str__(self):
+        return self.text
 
 
 
@@ -69,17 +85,14 @@ class FoosBot(object):
             game_creator = self.state_machines.get(sender)
 
         reply = game_creator.handle_message(sender, body)
-        msg.reply(reply).send()        
+        self.send(sender, reply)   
 
-    def _get_template(self, name):
-        with open(join(THIS_DIR, name+".tmpl"), "r") as h:
-            tmpl = Template(h.read())
-        return tmpl
 
     def send(self, to, message):
         if not isinstance(to, (tuple, list)): to = [to]
+        message = str(message) # evaluates Template, if it exists
         for player in to:
-            self.xmpp.send_message(mto=to, mbody=message, mtype='chat')
+            self.xmpp.send_message(player, message)
 
 
 
@@ -105,6 +118,8 @@ class GameCreator(object):
 
         
     def handle_message(self, sender, message):
+        reply = "I'm sorry, but this feature hasn't been programmed yet."
+        
         # Player registration
         if self.player_status == "new":
             reply = ("Hi, I'm FoosBot. I don't believe we've met. "
@@ -139,15 +154,10 @@ class GameCreator(object):
         # Commands an active player can perform
         elif self.player_status == "active":
             if message == "help":
-                reply = ("I understand the following commands:\n"
-                         "help - Displays this menu\n"
-                         "play - Requests a game of foosball allowing you to set a time delay and wager\n"
-                         "quickplay - Requests a game of foosball instantly with no wager\n"
-                         "retire - Remove yourself from the active roster and disable notifications (your stats are not lost)\n"
-                         "unretire - Get back in the game!\n")
+                reply = Template("help")
             
             elif message == "play":
-                reply = "I'm sorry, but this feature hasn't been programmed yet."
+                pass
             
             elif message == "quickplay" and bot.match_requested == False:
                 bot.match_requested = True
@@ -158,12 +168,9 @@ class GameCreator(object):
                 for row in result:
                     bot.active_players[row[0]] = row[1]
 
-                for player in bot.active_players:
-                    #if player != sender: !!! REMOVE THIS COMMENT LATER !!!
-                        msg = "%s has challeneged you to a game of table football!" % bot.active_players[sender]
-                        bot.send(player, msg)
 
-                reply = "I'm sorry, but this feature hasn't been programmed yet."
+                message = "%s has challeneged you to a game of table football!" % bot.active_players[sender]
+                bot.send(bot.active_players, msg)
             
             elif message == 'y' and bot.match_requested == True:
                 #Do not allow a registered user to be added more than once
@@ -209,7 +216,7 @@ class GameCreator(object):
                 reply = ("I'm sorry, I dont understand. Please type 'help' "
                          "for a list of commands.")
                 
-        return reply 
+        return reply
 
 
 def db_query(query, args, query_type):
