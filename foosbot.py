@@ -4,9 +4,15 @@ import datetime
 import logging
 import random
 import sqlite3
+from os.path import abspath, join, dirname
+from string import Template
 
 from sleekxmpp import ClientXMPP
 from sleekxmpp.exceptions import IqError, IqTimeout
+
+
+THIS_DIR = dirname(abspath(__file__))
+
 
 
 class FoosBot(object):
@@ -65,6 +71,10 @@ class FoosBot(object):
         reply = game_creator.handle_message(sender, body)
         msg.reply(reply).send()        
 
+    def _get_template(self, name):
+        with open(join(THIS_DIR, name+".tmpl"), "r") as h:
+            tmpl = Template(h.read())
+        return tmpl
 
     def send(self, to, message):
         if not isinstance(to, (tuple, list)): to = [to]
