@@ -66,6 +66,10 @@ class FoosBot(object):
         msg.reply(reply).send()        
 
 
+    def send(self, to, message):
+        self.xmpp.send_message(mto=to, mbody=message, mtype='chat')
+
+
 
 class GameCreator(object):
     
@@ -144,10 +148,9 @@ class GameCreator(object):
 
                 for player in bot.active_players:
                     #if player != sender: !!! REMOVE THIS COMMENT LATER !!!
-                        bot.send_message(mto = player,
-                                         mbody=("%s has challeneged you to a "
-                                                "game of table football!") % bot.active_players[sender],
-                                         mtype='chat')
+                        msg = "%s has challeneged you to a game of table football!" % bot.active_players[sender]
+                        bot.send(player, msg)
+
                 reply = "I'm sorry, but this feature hasn't been programmed yet."
             
             elif message == 'y' and bot.match_requested == True:
@@ -162,19 +165,20 @@ class GameCreator(object):
                 if len(bot.match_players) == 4:
                     # Generate teams
                     match_data = create_match(bot.match_players)
-                    for teammate in match_data['teams']:
-                        bot.send_message(mto=teammate,
-                                          mbody=("Match %s has been created "
-                                          "with the following teams:\n" 
-                                          "White team: %s and %s\nVS\n"
-                                          "Red team: %s and %s\n"
-                                          "Good luck.") % 
-                                          ([match_data['match_id']],
-                                          bot.active_players[match_data['teams'][0]],
-                                          bot.active_players[match_data['teams'][1]],
-                                          bot.active_players[match_data['teams'][2]],
-                                          bot.active_players[match_data['teams'][3]],),
-                                          mtype='chat')
+                    teams = match_data['teams']
+                    ap = bot.active_players
+                    
+                    for teammate in teams:
+                        msg = "Match %s has been created with the following \
+                        teams:\n White team: %s and %s\nVS\nRed team: %s and \
+                        %s\nGood luck." % (
+                            match_data['match_id'],
+                            ap[teams[0]],
+                            ap[teams[1]],
+                            ap[teams[2]],
+                            ap[teams[3]]
+                        )
+                        bot.send(teammate, msg)
                     # Clear active players array and set game_requeste to false
                     del bot.active_players[:]
                     bot.match_requested = False
