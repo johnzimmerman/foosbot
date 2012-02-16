@@ -4,43 +4,73 @@ import datetime
 import logging
 import random
 import sqlite3
+from os.path import abspath, join, dirname
+from string import Template as StringTemplate
 
 from sleekxmpp import ClientXMPP
 from sleekxmpp.exceptions import IqError, IqTimeout
 
 
-class FoosBot(ClientXMPP):
+THIS_DIR = dirname(abspath(__file__))
 
+
+
+
+class Template(object):
+    def __init__(self, name, *args, **kwargs):
+        self.tmpl = self.get_template(name)
+        self.text = self.tmpl.safe_substitute(*args, **kwargs)
+    
+    def get_template(self, name):
+        with open(join(THIS_DIR, "templates", name+".tmpl"), "r") as h:
+            tmpl = StringTemplate(h.read())
+        return tmpl
+    
+    def __str__(self):
+        return self.text
+
+
+
+class FoosBot(object):
     def __init__(self, jid, password):
-        ClientXMPP.__init__(self, jid, password)
+        # we set this as an attribute instead of sublcassing because many
+        # of ClientXMPP's attributes are named something we might accidentally
+        # overrite (breaking ClientXMPP).  it's happened to me quite a bit
+        self.xmpp = ClientXMPP(jid, password)
+    
+        self.xmpp.add_event_handler("session_start", self._session_start_handler)
+        self.xmpp.add_event_handler("message", self._message_handler)
 
-        self.add_event_handler("session_start", self.session_start)
-        self.add_event_handler("message", self.message)
-
-        self.register_plugin('xep_0030') # Service Discovery
-        self.register_plugin('xep_0199') # XMPP Ping
+        self.xmpp.register_plugin('xep_0030') # Service Discovery
+        self.xmpp.register_plugin('xep_0199') # XMPP Ping
         
         self.match_requested = False
         self.active_players = {}
         self.match_players = []
         self.state_machines = {}
 
-    def session_start(self, event):
-        self.send_presence()
+
+    def start(self):
+        self.xmpp.connect(('talk.google.com', 5222))
+        self.xmpp.process(block=True)
+
+    def _session_start_handler(self, event):
+        self.xmpp.send_presence()
 
         # Most get_*/set_* methods from plugins use Iq stanzas, which
         # can generate IqError and IqTimeout exceptions
         try:
-            self.get_roster()
+            self.xmpp.get_roster()
         except IqError as err:
             logging.error('There was an error getting the roster')
             logging.error(err.iq['error']['condition'])
-            self.disconnect()
+            self.xmpp.disconnect()
         except IqTimeout:
             logging.error('Server is taking too long to respond')
-            self.disconnect()
+            self.xmpp.disconnect()
 
-    def message(self, msg):
+
+    def _message_handler(self, msg):
         if msg['type'] not in ('chat', 'normal'):
             # TODO Add logging
             return
@@ -53,10 +83,17 @@ class FoosBot(ClientXMPP):
         if not game_creator:
             self.state_machines[sender] = GameCreator(sender)
             game_creator = self.state_machines.get(sender)
+
         reply = game_creator.handle_message(sender, body)
-        
-        msg.reply(reply).send()        
-        #msg.reply("Thanks for sending me a message %(from)s\n%(body)s" % msg).send()
+        if reply: self.send(sender, reply)   
+
+
+    def send(self, to, message):
+        if not isinstance(to, (tuple, list)): to = [to]
+        message = str(message) # evaluates Template, if it exists
+        for player in to:
+            self.xmpp.send_message(player, message)
+
 
 
 class GameCreator(object):
@@ -81,6 +118,8 @@ class GameCreator(object):
 
         
     def handle_message(self, sender, message):
+        reply = "I'm sorry, but this feature hasn't been programmed yet."
+        
         # Player registration
         if self.player_status == "new":
             reply = ("Hi, I'm FoosBot. I don't believe we've met. "
@@ -115,30 +154,23 @@ class GameCreator(object):
         # Commands an active player can perform
         elif self.player_status == "active":
             if message == "help":
-                reply = ("I understand the following commands:\n"
-                         "help - Displays this menu\n"
-                         "play - Requests a game of foosball allowing you to set a time delay and wager\n"
-                         "quickplay - Requests a game of foosball instantly with no wager\n"
-                         "retire - Remove yourself from the active roster and disable notifications (your stats are not lost)\n"
-                         "unretire - Get back in the game!\n")
+                reply = Template("help")
             
             elif message == "play":
-                reply = "I'm sorry, but this feature hasn't been programmed yet."
+                pass
             
             elif message == "quickplay" and bot.match_requested == False:
                 bot.match_requested = True
                 bot.match_players.append({'id' : self.player_id, 'jabber_id' : sender })
                 t = (1, )
                 result = db_query("select jabber_id, name from player where is_active = ?", t, "read")
+
                 for row in result:
                     bot.active_players[row[0]] = row[1]
-                for player in bot.active_players:
-                    #if player != sender: !!! REMOVE THIS COMMENT LATER !!!
-                        bot.send_message(mto = player,
-                                         mbody=("%s has challeneged you to a "
-                                                "game of table football!") % bot.active_players[sender],
-                                         mtype='chat')
-                reply = "I'm sorry, but this feature hasn't been programmed yet."
+
+
+                message = "%s has challeneged you to a game of table football!" % bot.active_players[sender]
+                bot.send(bot.active_players, msg)
             
             elif message == 'y' and bot.match_requested == True:
                 #Do not allow a registered user to be added more than once
@@ -146,30 +178,29 @@ class GameCreator(object):
                     #The following message won't be sent. FIX LATER
                    reply = "You are already playing in the next match."
                    return
-                Check for 4 players 
+                # Check for 4 players 
                 if len(bot.match_players) < 4:
                     bot.match_players.append({'id' : self.player_id, 'jabber_id' : sender })
                 if len(bot.match_players) == 4:
                     # Generate teams
                     match_data = create_match(bot.match_players)
-                    for teammate in match_data['teams']:
-                        bot.send_message(mto=teammate,
-                                          mbody=("Match %s has been created "
-                                          "with the following teams:\n" 
-                                          "White team: %s and %s\nVS\n"
-                                          "Red team: %s and %s\n"
-                                          "Good luck.") % 
-                                          ([match_data['match_id']],
-                                          bot.active_players[match_data['teams'][0]],
-                                          bot.active_players[match_data['teams'][1]],
-                                          bot.active_players[match_data['teams'][2]],
-                                          bot.active_players[match_data['teams'][3]],),
-                                          mtype='chat')
+                    
+                    # convenience shortcuts
+                    teams = match_data['teams']
+                    ap = bot.active_players
+                    
+                    tparams = {
+                        "id": match_data['match_id'],
+                        "white1": ap[teams[0]], "white2": ap[teams[1]],
+                        "red1": ap[teams[2]], "red2": ap[teams[3]],
+                    }
+                    bot.send(teams, Template("match", **tparams))
+                    
                     # Clear active players array and set game_requeste to false
                     del bot.active_players[:]
                     bot.match_requested = False
 
-                reply = "generic reply"
+                reply = None
             
             elif message == "retire":
                 t = (player,)
@@ -183,7 +214,7 @@ class GameCreator(object):
                 reply = ("I'm sorry, I dont understand. Please type 'help' "
                          "for a list of commands.")
                 
-        return reply 
+        return reply
 
 
 def db_query(query, args, query_type):
@@ -270,5 +301,4 @@ if __name__ == '__main__':
 
     # Launch bot
     bot = FoosBot(jid, password)
-    bot.connect(('talk.google.com', 5222))
-    bot.process(block=True)
+    bot.start()
