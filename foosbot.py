@@ -85,7 +85,7 @@ class FoosBot(object):
             game_creator = self.state_machines.get(sender)
 
         reply = game_creator.handle_message(sender, body)
-        self.send(sender, reply)   
+        if reply: self.send(sender, reply)   
 
 
     def send(self, to, message):
@@ -184,25 +184,23 @@ class GameCreator(object):
                 if len(bot.match_players) == 4:
                     # Generate teams
                     match_data = create_match(bot.match_players)
+                    
+                    # convenience shortcuts
                     teams = match_data['teams']
                     ap = bot.active_players
                     
-                    msg = "Match %s has been created with the following \
-                    teams:\n White team: %s and %s\nVS\nRed team: %s and \
-                    %s\nGood luck." % (
-                        match_data['match_id'],
-                        ap[teams[0]],
-                        ap[teams[1]],
-                        ap[teams[2]],
-                        ap[teams[3]]
-                    )
-                    bot.send(teams, msg)
+                    tparams = {
+                        "id": match_data['match_id'],
+                        "white1": ap[teams[0]], "white2": ap[teams[1]],
+                        "red1": ap[teams[2]], "red2": ap[teams[3]],
+                    }
+                    bot.send(teams, Template("match", **tparams))
                     
                     # Clear active players array and set game_requeste to false
                     del bot.active_players[:]
                     bot.match_requested = False
 
-                reply = "generic reply"
+                reply = None
             
             elif message == "retire":
                 t = (player,)
