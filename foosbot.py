@@ -102,6 +102,7 @@ class GameCreator(object):
         # Game creator variables
         self.player_status = None
         self.player_id = None
+        self.entry_mode = "normal"
 
         # Check for existing user on object creation and set appropriate status
         t = (player, )
@@ -153,67 +154,74 @@ class GameCreator(object):
         
         # Commands an active player can perform
         elif self.player_status == "active":
-            if message == "help":
-                reply = Template("help")
-            
-            elif message == "play":
-                pass
-            
-            elif message == "quickplay" and bot.match_requested == False:
-                bot.match_requested = True
-                bot.match_players.append({'id' : self.player_id, 'jabber_id' : sender })
-                t = (1, )
-                result = db_query("select jabber_id, name from player where is_active = ?", t, "read")
-
-                for row in result:
-                    bot.active_players[row[0]] = row[1]
-
-
-                message = "%s has challeneged you to a game of table football!" % bot.active_players[sender]
-                bot.send(bot.active_players, msg)
-            
-            elif message == 'y' and bot.match_requested == True:
-                #Do not allow a registered user to be added more than once
-                if sender in bot.match_players:
-                    #The following message won't be sent. FIX LATER
-                   reply = "You are already playing in the next match."
-                   return
-                # Check for 4 players 
-                if len(bot.match_players) < 4:
-                    bot.match_players.append({'id' : self.player_id, 'jabber_id' : sender })
-                if len(bot.match_players) == 4:
-                    # Generate teams
-                    match_data = create_match(bot.match_players)
-                    
-                    # convenience shortcuts
-                    teams = match_data['teams']
-                    ap = bot.active_players
-                    
-                    tparams = {
-                        "id": match_data['match_id'],
-                        "white1": ap[teams[0]], "white2": ap[teams[1]],
-                        "red1": ap[teams[2]], "red2": ap[teams[3]],
-                    }
-                    bot.send(teams, Template("match", **tparams))
-                    
-                    # Clear active players array and set game_requeste to false
-                    del bot.active_players[:]
-                    bot.match_requested = False
-
-                reply = None
-            
-            elif message == "retire":
-                t = (player,)
-                db_query("update player set is_active = 0 where jabber_id='?'", t, "write")
-                self.player_status = "retired"
-                reply = ("You have been removed from the active roster and "
-                         "will no longer receive notifications when games are "
-                         "requested. Pull a Brett Favre and unretire at any time by "
-                         "sending me the message 'unretire'")
-            else:
-                reply = ("I'm sorry, I dont understand. Please type 'help' "
-                         "for a list of commands.")
+            if self.entry_mode == "normal":
+                if message == "help":
+                    reply = Template("help")
                 
+                elif message == "play":
+                    pass
+                
+                elif message == "quickplay" and bot.match_requested == False:
+                    bot.match_requested = True
+                    bot.match_players.append({'id' : self.player_id, 'jabber_id' : sender })
+                    
+                    t = (1, )
+                    result = db_query("select jabber_id, name from player where is_active = ?", t, "read")
+
+                    for row in result:
+                        bot.active_players[row[0]] = row[1]
+
+
+                    message = "%s has challeneged you to a game of table football!" % bot.active_players[sender]
+                    bot.send(bot.active_players, msg)
+                
+                elif message == 'y' and bot.match_requested == True:
+                    # Do not allow a registered user to be added more than once
+                    if sender in bot.match_players:
+                        #The following message won't be sent. FIX LATER
+                       reply = "You are already playing in the next match."
+                       return
+                    # Check for 4 players 
+                    if len(bot.match_players) < 4:
+                        bot.match_players.append({'id' : self.player_id, 'jabber_id' : sender })
+                    if len(bot.match_players) == 4:
+                        # Generate teams
+                        match_data = create_match(bot.match_players)
+                        
+                        # convenience shortcuts
+                        teams = match_data['teams']
+                        ap = bot.active_players
+                        
+                        tparams = {
+                            "id": match_data['match_id'],
+                            "white1": ap[teams[0]], "white2": ap[teams[1]],
+                            "red1": ap[teams[2]], "red2": ap[teams[3]],
+                        }
+                        bot.send(teams, Template("match", **tparams))
+                        
+                        # Clear active players array and reset match_requested
+                        del bot.active_players[:]
+                        bot.match_requested = False
+
+                    reply = None
+                
+                elif message == "score":
+                    self.entry_mode = "scoring"
+
+                elif message == "retire":
+                    t = (player,)
+                    db_query("update player set is_active = 0 where jabber_id='?'", t, "write")
+                    self.player_status = "retired"
+                    reply = ("You have been removed from the active roster and "
+                             "will no longer receive notifications when games are "
+                             "requested. Pull a Brett Favre and unretire at any time by "
+                             "sending me the message 'unretire'")
+                else:
+                    reply = ("I'm sorry, I dont understand. Please type 'help' "
+                             "for a list of commands.")
+
+            elif self.entry_mode == "scoring": 
+
         return reply
 
 
