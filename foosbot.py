@@ -99,10 +99,14 @@ class FoosBot(object):
 class GameCreator(object):
     
     def __init__(self, player):
-        # Game creator variables
+        self.entry_mode = "normal"
+
+        # Player variables
         self.player_status = None
         self.player_id = None
-        self.entry_mode = "normal"
+        
+        # Scoring variables
+        self.scoring_progress = None
 
         # Check for existing user on object creation and set appropriate status
         t = (player, )
@@ -207,6 +211,9 @@ class GameCreator(object):
                 
                 elif message == "score":
                     self.entry_mode = "scoring"
+                    reply = ("You are now in scoring mode. You can exit this mode "
+                             "at any time by typing 'exit'. Please enter the "
+                             "match number that you would like to score.")
 
                 elif message == "retire":
                     t = (player,)
@@ -220,8 +227,14 @@ class GameCreator(object):
                     reply = ("I'm sorry, I dont understand. Please type 'help' "
                              "for a list of commands.")
 
-            elif self.entry_mode == "scoring": 
-
+            # Scoring mode
+            elif self.entry_mode == 'scoring':
+                if message == 'exit':
+                    self.entry_mode = 'normal'
+                elif check_if_int(message):
+                    reply = "I made it to an int!"
+                else: reply = "I did not."
+            
         return reply
 
 
@@ -293,7 +306,14 @@ def create_match(players):
     }
     
     return match_data
-    
+ 
+def check_if_int(message):
+    try:
+        int(message)
+        return True
+        
+    except Exception: 
+        return False
     
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG,
