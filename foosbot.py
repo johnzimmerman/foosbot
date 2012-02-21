@@ -106,7 +106,9 @@ class GameCreator(object):
         self.player_id = None
         
         # Scoring variables
-        self.scoring_progress = None
+        self.score_progress = None
+        self.match_num = 0
+        self.num_games = 0
 
         # Check for existing user on object creation and set appropriate status
         t = (player, )
@@ -214,6 +216,7 @@ class GameCreator(object):
                     reply = ("You are now in scoring mode. You can exit this mode "
                              "at any time by typing 'exit'. Please enter the "
                              "match number that you would like to score.")
+                    self.score_progress = 'match number'
 
                 elif message == "retire":
                     t = (player,)
@@ -231,9 +234,27 @@ class GameCreator(object):
             elif self.entry_mode == 'scoring':
                 if message == 'exit':
                     self.entry_mode = 'normal'
-                elif check_if_int(message):
-                    reply = "I made it to an int!"
-                else: reply = "I did not."
+                    reply = "You are no longer in scoring mode."
+                elif self.score_progress == 'match number':
+                    if check_if_int(message):
+                        # check if match num exists
+                        t = (message, )
+                        result = db_query("select id from match where id = ?", t, "read")
+                        if len(result) == 1:
+                            self.match_num = result[0][0]
+                            self.score_progress = 'number of games'
+                            reply = "How many games did you play?"
+                        else:
+                            reply = ("That match number does not exist. "
+                                     "Please try again.")        
+                    else:
+                        reply = 'Please enter a number.'
+
+                elif self.score_progress == 'number of games':
+                    if check_if_int(message):
+                        reply = None
+                    else :    
+                        reply = 'Please enter a number.'
             
         return reply
 
