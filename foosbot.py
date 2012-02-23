@@ -179,7 +179,7 @@ class GameCreator(object):
 
 
                     message = "%s has challeneged you to a game of table football!" % bot.active_players[sender]
-                    bot.send(bot.active_players, msg)
+                    bot.send(bot.active_players.keys(), message)
                 
                 elif message == 'y' and bot.match_requested == True:
                     # Do not allow a registered user to be added more than once
@@ -190,6 +190,9 @@ class GameCreator(object):
                     # Check for 4 players 
                     if len(bot.match_players) < 4:
                         bot.match_players.append({'id' : self.player_id, 'jabber_id' : sender })
+                        # notify game initiator as players join
+                        bot.send(bot.match_players[0]['jabber_id'],
+                                 '%s has joined the game.' % bot.active_players[sender])
                     if len(bot.match_players) == 4:
                         # Generate teams
                         match_data = create_match(bot.match_players)
@@ -252,8 +255,9 @@ class GameCreator(object):
 
                 elif self.score_progress == 'number of games':
                     if check_if_int(message):
+                        self.num_games = message
                         reply = None
-                    else :    
+                    else :
                         reply = 'Please enter a number.'
             
         return reply
