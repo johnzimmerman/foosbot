@@ -225,10 +225,7 @@ class GameCreator(object):
                     t = (player,)
                     db_query("update player set is_active = 0 where jabber_id='?'", t, "write")
                     self.player_status = "retired"
-                    reply = ("You have been removed from the active roster and "
-                             "will no longer receive notifications when games are "
-                             "requested. Pull a Brett Favre and unretire at any time by "
-                             "sending me the message 'unretire'")
+                    reply = Template("retire")
                 else:
                     reply = ("I'm sorry, I dont understand. Please type 'help' "
                              "for a list of commands.")
