@@ -113,7 +113,7 @@ class GameCreator(object):
 
         # Check for existing user on object creation and set appropriate status
         t = (player, )
-        result = db_query("select id, is_active from player where jabber_id = ?", t, "read")
+        result = db_query("select id, is_active from player where jabber_id = ?", t, "r")
  
         if len(result) >= 1:
             if result[0][1] == 1:
@@ -148,12 +148,12 @@ class GameCreator(object):
                          "with 'yes' or 'no'.")
         elif self.player_status == "waiting for name":
             t = (message, sender)
-            result = db_query("insert into player (name, jabber_id) values (?, ?)", t, "write")
+            result = db_query("insert into player (name, jabber_id) values (?, ?)", t, "w")
             if result == 'success':
                 reply = ("Thanks %s. You've been successfully added to my database. "
                          "Please type 'help' to see a list of commands.") % message
                 t = (sender, )
-                result = db_query("select id from player where jabber_id = ?", t, "read")
+                result = db_query("select id from player where jabber_id = ?", t, "r")
                 self.player_id = result[0][0]
             else:
                 reply = "I'm sorry, something bad has happened. Please contact the bot administrator."
@@ -173,7 +173,7 @@ class GameCreator(object):
                     bot.match_players.append({'id' : self.player_id, 'jabber_id' : sender })
                     
                     t = (1, )
-                    result = db_query("select jabber_id, name from player where is_active = ?", t, "read")
+                    result = db_query("select jabber_id, name from player where is_active = ?", t, "r")
 
                     for row in result:
                         bot.active_players[row[0]] = row[1]
@@ -224,7 +224,7 @@ class GameCreator(object):
 
                 elif message == "retire":
                     t = (player,)
-                    db_query("update player set is_active = 0 where jabber_id='?'", t, "write")
+                    db_query("update player set is_active = 0 where jabber_id='?'", t, "w")
                     self.player_status = "retired"
                     reply = Template("retire")
                 else:
@@ -240,7 +240,7 @@ class GameCreator(object):
                     if check_if_int(message):
                         # check if match num exists
                         t = (message, )
-                        result = db_query("select id from match where id = ?", t, "read")
+                        result = db_query("select id from match where id = ?", t, "r")
                         if len(result) == 1:
                             self.match_num = result[0][0]
                             self.score_progress = 'number of games'
@@ -265,7 +265,7 @@ class GameCreator(object):
                     if re.search('^(\d{1}|\d{2})-(\d{1}|\d{2})$', message):
                         sc1, sc2 = message.split('-')
                         if sc1 != sc2:
-                            reply = 'valid score'
+                            
                         else:
                             reply = 'Please enter a valid score.'
                     else:
@@ -278,11 +278,16 @@ def db_query(query, args, query_type):
     try:
         con = sqlite3.connect('./data.db')
         cur = con.cursor() 
-        cur.execute(query, args)
-        if query_type == 'write':
+        if query_type == 'w':
+            cur.execute(query, args)
+            con.commit()
+            return "success"
+        elif query_type == 'wm':
+            cur.execute(query, args)
             con.commit()
             return "success"
         else:
+            cur.execute(query, args)
             rows = cur.fetchall()
             if rows == None:
                 return "failure"
@@ -310,15 +315,15 @@ def create_match(players):
 
     for t in [(p1, p2, p1, p2), (p3, p4, p3, p4)]:
         # Check if team exists in the DB
-        result = db_query("select id from team where (player1_id = ? OR player2_id = ?) AND (player1_id = ? OR player2_id = ?)", t, "read")    
+        result = db_query("select id from team where (player1_id = ? OR player2_id = ?) AND (player1_id = ? OR player2_id = ?)", t, "r")    
         # Get team ID if yes
         if len(result) >= 1:
             match_query_data.append(result[0][0])
         # Create team ID and then get newly created ID
         else:
             t2 = t[0:2]
-            db_query("insert into team (player1_id, player2_id) values (?, ?)", t2, "write")
-            result = db_query("select id from team where (player1_id = ? OR player2_id = ?) AND (player1_id = ? OR player2_id = ?)", t, "read")
+            db_query("insert into team (player1_id, player2_id) values (?, ?)", t2, "w")
+            result = db_query("select id from team where (player1_id = ? OR player2_id = ?) AND (player1_id = ? OR player2_id = ?)", t, "r")
             match_query_data.append(result[0][0])
 
     # Create a match
@@ -327,10 +332,10 @@ def create_match(players):
 
     # Convert match_query_data into a tuple to be used in query
     match_query_data = tuple(match_query_data)
-    result = db_query("insert into match (team1_id, team2_id, match_datetime) values (?, ?, ?)", match_query_data, "write")
+    result = db_query("insert into match (team1_id, team2_id, match_datetime) values (?, ?, ?)", match_query_data, "w")
 
     t = (match_time,)
-    match_id = db_query("select id from match where match_datetime = ?", t, "read")[0][0]
+    match_id = db_query("select id from match where match_datetime = ?", t, "r")[0][0]
     
     match_data = {
         'match_id' : match_id,
