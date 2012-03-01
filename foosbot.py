@@ -111,6 +111,7 @@ class GameCreator(object):
         self.match_num = 0
         self.num_games = 0
         self.current_game = 1
+        self.game_data = []
 
         # Check for existing user on object creation and set appropriate status
         t = (player, )
@@ -261,10 +262,10 @@ class GameCreator(object):
 
                 elif self.score_progress == 'number of games':
                     if check_if_int(message):
-                        self.num_games = message
-                        self.score_progress = 'enter scores'
+                        self.num_games = int(message)
                         generic = {'white1': 'Player1', 'white2' : 'Player2'}
                         reply = Template("scoring_instructions", **generic)
+                        self.score_progress = 'enter scores'
                     else :
                         reply = 'Please enter a number.'
 
@@ -274,7 +275,27 @@ class GameCreator(object):
                         if re.search('^(\d{1}|\d{2})-(\d{1}|\d{2})$', message):
                             sc1, sc2 = message.split('-')
                             if sc1 != sc2:
-                                self.current_game += 1
+                                self.game_data.append((self.match_num, sc1, sc2))
+                                if self.current_game == len(range(self.num_games)):
+                                    # enter scores in DB
+                                    db_query("insert into game (match_id, team1_score, team2_score) "
+                                             "values (?, ?, ?)", self.game_data, "wm")
+
+                                    reply = ('Thank you, match #%d has been '
+                                             'successfully scored. Now leaving '
+                                             'scoring mode.' % self.match_num)
+                                    
+                                    # flush variables
+                                    self.match_num = 0
+                                    self.num_games = 0
+                                    self.current_game = 1
+                                    del self.game_data[:]
+                                    self.score_progress = None
+                                    self.entry_mode = 'normal'
+
+                                else:
+                                    self.current_game += 1
+                                    reply = 'Please enter the score of game #%d' % self.current_game
                             else:
                                 reply = 'Please enter a valid score.'
                         else:
@@ -292,7 +313,7 @@ def db_query(query, args, query_type):
             con.commit()
             return "success"
         elif query_type == 'wm':
-            cur.execute(query, args)
+            cur.executemany(query, args)
             con.commit()
             return "success"
         else:
