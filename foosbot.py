@@ -110,6 +110,7 @@ class GameCreator(object):
         self.score_progress = None
         self.match_num = 0
         self.num_games = 0
+        self.current_game = 1
 
         # Check for existing user on object creation and set appropriate status
         t = (player, )
@@ -261,15 +262,16 @@ class GameCreator(object):
                         reply = 'Please enter a number.'
 
                 elif self.score_progress == 'enter scores':
-                    message = message.replace(' ', '')
-                    if re.search('^(\d{1}|\d{2})-(\d{1}|\d{2})$', message):
-                        sc1, sc2 = message.split('-')
-                        if sc1 != sc2:
-                            
+                    if self.current_game <= len(range(self.num_games))
+                        message = message.replace(' ', '')
+                        if re.search('^(\d{1}|\d{2})-(\d{1}|\d{2})$', message):
+                            sc1, sc2 = message.split('-')
+                            if sc1 != sc2:
+                                self.current_game += 1
+                            else:
+                                reply = 'Please enter a valid score.'
                         else:
                             reply = 'Please enter a valid score.'
-                    else:
-                        reply = 'Please enter a valid score.'
             
         return reply
 
