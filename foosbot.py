@@ -244,8 +244,15 @@ class GameCreator(object):
                         result = db_query("select id from match where id = ?", t, "r")
                         if len(result) == 1:
                             self.match_num = result[0][0]
-                            self.score_progress = 'number of games'
-                            reply = "How many games did you play?"
+                            # check if match has been scored
+                            t = (self.match_num, )
+                            result = db_query("select id from game where match_id = ?", t, "r")
+                            if len(result) == 1:
+                                reply = ('That match has already been scored. '
+                                         'Please enter another or type exit.')
+                            else:
+                                reply = "How many games did you play?"
+                                self.score_progress = 'number of games'
                         else:
                             reply = ("That match number does not exist. "
                                      "Please try again.")        
@@ -262,7 +269,7 @@ class GameCreator(object):
                         reply = 'Please enter a number.'
 
                 elif self.score_progress == 'enter scores':
-                    if self.current_game <= len(range(self.num_games))
+                    if self.current_game <= len(range(self.num_games)):
                         message = message.replace(' ', '')
                         if re.search('^(\d{1}|\d{2})-(\d{1}|\d{2})$', message):
                             sc1, sc2 = message.split('-')
