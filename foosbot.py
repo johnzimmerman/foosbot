@@ -3,6 +3,7 @@ import copy
 import datetime
 import logging
 import random
+import re
 import sqlite3
 from os.path import abspath, join, dirname
 from string import Template as StringTemplate
@@ -253,9 +254,22 @@ class GameCreator(object):
                 elif self.score_progress == 'number of games':
                     if check_if_int(message):
                         self.num_games = message
-                        reply = None
+                        self.score_progress = 'enter scores'
+                        generic = {'white1': 'Player1', 'white2' : 'Player2'}
+                        reply = Template("scoring_instructions", **generic)
                     else :
                         reply = 'Please enter a number.'
+
+                elif self.score_progress == 'enter scores':
+                    message = message.replace(' ', '')
+                    if re.search('^(\d{1}|\d{2})-(\d{1}|\d{2})$', message):
+                        sc1, sc2 = message.split('-')
+                        if sc1 != sc2:
+                            reply = 'valid score'
+                        else:
+                            reply = 'Please enter a valid score.'
+                    else:
+                        reply = 'Please enter a valid score.'
             
         return reply
 
@@ -317,9 +331,6 @@ def create_match(players):
 
     t = (match_time,)
     match_id = db_query("select id from match where match_datetime = ?", t, "read")[0][0]
-    print "-------------- DEBUG --------------"
-    print players
-    print "-------------- DEBUG --------------"
     
     match_data = {
         'match_id' : match_id,
