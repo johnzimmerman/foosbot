@@ -149,7 +149,7 @@ class GameCreator(object):
                 reply = ("I'm sorry, I don't understand. Please respond "
                          "with 'yes' or 'no'.")
         elif self.player_status == "waiting for name":
-            t = (message, sender)
+            t = (message.capitalize(), sender)
             result = db_query("insert into player (name, jabber_id) values (?, ?)", t, "w")
             if result == 'success':
                 reply = ("Thanks %s. You've been successfully added to my database. "
@@ -284,7 +284,7 @@ class GameCreator(object):
                                     reply = ('Thank you, match #%d has been '
                                              'successfully scored. Now leaving '
                                              'scoring mode.' % self.match_num)
-                                    
+
                                     # flush variables
                                     self.match_num = 0
                                     self.num_games = 0
