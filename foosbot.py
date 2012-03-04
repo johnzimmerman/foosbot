@@ -149,7 +149,8 @@ class GameCreator(object):
                 reply = ("I'm sorry, I don't understand. Please respond "
                          "with 'yes' or 'no'.")
         elif self.player_status == "waiting for name":
-            t = (message.capitalize(), sender)
+            message = message.capitalize()
+            t = (message, sender)
             result = db_query("insert into player (name, jabber_id) values (?, ?)", t, "w")
             if result == 'success':
                 reply = ("Thanks %s. You've been successfully added to my database. "
@@ -190,13 +191,13 @@ class GameCreator(object):
                     if sender in bot.match_players:
                         #The following message won't be sent. FIX LATER
                        reply = "You are already playing in the next match."
-                       return
+
                     # Check for 4 players 
                     if len(bot.match_players) < 4:
                         bot.match_players.append({'id' : self.player_id, 'jabber_id' : sender })
                         # notify game initiator as players join
                         bot.send(bot.match_players[0]['jabber_id'],
-                                 '%s has joined the game.' % bot.active_players[sender])
+                                 '%s has joined the match.' % bot.active_players[sender])
                     if len(bot.match_players) == 4:
                         # Generate teams
                         match_data = create_match(bot.match_players)
@@ -212,8 +213,10 @@ class GameCreator(object):
                         }
                         bot.send(teams, Template("match", **tparams))
                         
-                        # Clear active players array and reset match_requested
-                        del bot.active_players[:]
+                        # Clear match/active players array and 
+                        # reset match_requested
+                        del bot.match_players[:]
+                        bot.active_players.clear()
                         bot.match_requested = False
 
                     reply = None
