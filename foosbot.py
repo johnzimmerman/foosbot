@@ -180,9 +180,10 @@ class GameCreator(object):
                     for row in result:
                         bot.active_players[row[0]] = row[1]
 
-
                     message = "%s has challeneged you to a game of table football!" % bot.active_players[sender]
                     bot.send(bot.active_players.keys(), message)
+
+                    reply = 'Match requested. I will notify the others.'
                 
                 elif message == 'y' and bot.match_requested == True:
                     # Do not allow a registered user to be added more than once
