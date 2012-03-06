@@ -241,6 +241,18 @@ class GameCreator(object):
                     reply = Template("retire")
 
                 elif message == "team stats":
+                    t = ()
+                    result = result = db_query("select p1.name, p2.name, team.wins, team.losses "
+                                               "from team join player as p1 on p1.id=player1_id "
+                                               "join player as p2 on p2.id=player2_id order by "
+                                               "team.wins desc;", t, "r")
+                    
+                    stats = '-- FoosBot Team Records --\n\n'
+                    
+                    for row in result:
+                        stats += '%s and %s (%d-%d)\n' % row
+
+                    reply = stats
                 
                 else:
                     reply = ("I'm sorry, I dont understand. Please type 'help' "
