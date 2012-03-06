@@ -184,7 +184,11 @@ class GameCreator(object):
                     message = ("%s has challeneged you to a match of table "
                                "football! Would you like to play? Reply with "
                                "(y)es to play.") % bot.active_players[sender]
-                    bot.send(bot.active_players.keys(), message)
+                    
+                    # Send message to active players except for match initiator
+                    for pj in bot.active_players:
+                        if pj != sender:
+                            bot.send(pj, message)
 
                     reply = 'Match requested. I will notify the others.'
                 
