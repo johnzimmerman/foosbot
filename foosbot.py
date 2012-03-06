@@ -181,12 +181,14 @@ class GameCreator(object):
                     for row in result:
                         bot.active_players[row[0]] = row[1]
 
-                    message = "%s has challeneged you to a game of table football!" % bot.active_players[sender]
+                    message = ("%s has challeneged you to a match of table "
+                               "football! Would you like to play? Reply with "
+                               "(y)es to play.") % bot.active_players[sender]
                     bot.send(bot.active_players.keys(), message)
 
                     reply = 'Match requested. I will notify the others.'
                 
-                elif message == 'y' and bot.match_requested == True:
+                elif (message == 'y' or message == 'yes') and bot.match_requested == True:
                     # Do not allow a registered user to be added more than once
                     if sender in bot.match_players:
                         #The following message won't be sent. FIX LATER
@@ -345,11 +347,12 @@ def create_match(players):
     p2 = players[1]['id']
     p3 = players[2]['id']
     p4 = players[3]['id']
+
     match_query_data = []
 
     for t in [(p1, p2, p1, p2), (p3, p4, p3, p4)]:
         # Check if team exists in the DB
-        result = db_query("select id from team where (player1_id = ? OR player2_id = ?) AND (player1_id = ? OR player2_id = ?)", t, "r")    
+        result = db_query("select id from team where (player1_id = ? OR player1_id = ?) AND (player2_id = ? OR player2_id = ?)", t, "r")
         # Get team ID if yes
         if len(result) >= 1:
             match_query_data.append(result[0][0])
@@ -357,7 +360,7 @@ def create_match(players):
         else:
             t2 = t[0:2]
             db_query("insert into team (player1_id, player2_id) values (?, ?)", t2, "w")
-            result = db_query("select id from team where (player1_id = ? OR player2_id = ?) AND (player1_id = ? OR player2_id = ?)", t, "r")
+            result = db_query("select id from team where (player1_id = ? OR player1_id = ?) AND (player2_id = ? OR player2_id = ?)", t, "r")
             match_query_data.append(result[0][0])
 
     # Create a match
