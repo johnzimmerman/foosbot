@@ -395,7 +395,24 @@ def check_if_int(message):
 
 
 def set_team_stats(match_id):
-    pass
+    t1_wins = 0
+    t2_wins = 0
+    t = (match_id, )
+    result = db_query("select team1_score, team2_score from game where match_id = ?", t, "r")
+
+    if len(result) >= 1:
+        for game in result:
+            if game[0] > game[1]: 
+                t1_wins += 1
+            else: 
+                t2_wins += 1
+
+        if t1_wins > t2_wins:
+            db_query("update team set wins = wins + 1 where id in (select team1_id from match where id = ?);", t, "w")
+            db_query("update team set losses = losses + 1 where id in (select team2_id from match where id = ?);", t, "w")
+        else:
+            db_query("update team set wins = wins + 1 where id in (select team2_id from match where id = ?);", t, "w")
+            db_query("update team set losses = losses + 1 where id in (select team1_id from match where id = ?);", t, "w")
     
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG,
