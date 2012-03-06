@@ -250,7 +250,7 @@ class GameCreator(object):
                         t = (message, )
                         result = db_query("select id from match where id = ?", t, "r")
                         if len(result) == 1:
-                            self.match_num = result[0][0]
+                            self.match_num = int(result[0][0])
                             # check if match has been scored
                             t = (self.match_num, )
                             result = db_query("select id from game where match_id = ?", t, "r")
@@ -269,8 +269,12 @@ class GameCreator(object):
                 elif self.score_progress == 'number of games':
                     if check_if_int(message):
                         self.num_games = int(message)
-                        generic = {'white1': 'Player1', 'white2' : 'Player2'}
-                        reply = Template("scoring_instructions", **generic)
+                        t = (self.match_num, )
+                        result = db_query("select p1.name, p2.name from team join match on match.team1_id=team.id "
+                                          "join player as p1 on p1.id = player1_id join player as p2 on " 
+                                          "p2.id = player2_id where match.id = ?;", t, "r")
+                        team1_names = {'white1': result[0][0], 'white2' : result[0][1]}
+                        reply = Template("scoring_instructions", **team1_names)
                         self.score_progress = 'enter scores'
                     else :
                         reply = 'Please enter a number.'
