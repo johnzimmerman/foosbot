@@ -291,6 +291,9 @@ class GameCreator(object):
                                              'successfully scored. Now leaving '
                                              'scoring mode.' % self.match_num)
 
+                                    # Populate team wins/losses
+                                    set_team_stats(self.match_num)
+
                                     # flush variables
                                     self.match_num = 0
                                     self.num_games = 0
@@ -389,6 +392,10 @@ def check_if_int(message):
         
     except Exception: 
         return False
+
+
+def set_team_stats(match_id):
+    pass
     
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG,
