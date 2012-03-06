@@ -239,6 +239,9 @@ class GameCreator(object):
                     db_query("update player set is_active = 0 where jabber_id='?'", t, "w")
                     self.player_status = "retired"
                     reply = Template("retire")
+
+                elif message == "team stats":
+                
                 else:
                     reply = ("I'm sorry, I dont understand. Please type 'help' "
                              "for a list of commands.")
