@@ -254,7 +254,7 @@ class GameCreator(object):
                             # check if match has been scored
                             t = (self.match_num, )
                             result = db_query("select id from game where match_id = ?", t, "r")
-                            if len(result) == 1:
+                            if len(result) >= 1:
                                 reply = ('That match has already been scored. '
                                          'Please enter another or type exit.')
                             else:
