@@ -18,6 +18,8 @@ CREATE TABLE team (
   id          integer PRIMARY KEY AUTOINCREMENT NOT NULL UNIQUE,
   player1_id  integer NOT NULL,
   player2_id  integer NOT NULL,
+  wins        integer DEFAULT 0,
+  losses      integer DEFAULT 0,
   FOREIGN KEY (player1_id)
     REFERENCES player(id),
   FOREIGN KEY (player2_id)
