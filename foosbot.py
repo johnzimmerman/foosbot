@@ -242,15 +242,29 @@ class GameCreator(object):
 
                 elif message == "team stats":
                     t = ()
-                    result = result = db_query("select p1.name, p2.name, team.wins, team.losses "
-                                               "from team join player as p1 on p1.id=player1_id "
-                                               "join player as p2 on p2.id=player2_id order by "
-                                               "team.wins desc;", t, "r")
+                    result = db_query("select p1.name, p2.name, team.wins, team.losses "
+                                      "from team join player as p1 on p1.id=player1_id "
+                                      "join player as p2 on p2.id=player2_id order by "
+                                      "team.wins desc;", t, "r")
                     
                     stats = '-- FoosBot Team Records --\n\n'
                     
                     for row in result:
-                        stats += '%s and %s (%d-%d)\n' % row
+                        stats += '%s and %s (%s-%s)\n' % row
+
+                    reply = stats
+
+                elif message == "player stats":
+                    t = ()
+                    result = db_query("select p.name, sum(t.wins), sum(t.losses) from "
+                                      "team t join player as p on t.player1_id = p.id "
+                                      "or t.player2_id = p.id group by p.id order by "
+                                      "sum(t.wins) desc;", t, "r")
+                    
+                    stats = '-- FoosBot Player Records --\n\n'
+                    
+                    for row in result:
+                        stats += '%s (%s-%s)\n' % row
 
                     reply = stats
                 
