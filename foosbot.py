@@ -352,7 +352,7 @@ class GameCreator(object):
 
 def db_query(query, args, query_type):
     try:
-        con = sqlite3.connect('./data.db')
+        con = sqlite3.connect(THIS_DIR + '/data.db')
         cur = con.cursor() 
         if query_type == 'w':
             cur.execute(query, args)
@@ -457,7 +457,7 @@ if __name__ == '__main__':
 
     # Load the config file
     cfgparser = SafeConfigParser()
-    cfgparser.read('settings.cfg')
+    cfgparser.read(THIS_DIR + '/settings.cfg')
     
     # Set connection settings
     jid = cfgparser.get('Connection', 'jid')
