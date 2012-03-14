@@ -250,7 +250,12 @@ class GameCreator(object):
                     stats = '-- FoosBot Team Records --\n\n'
                     
                     for row in result:
-                        stats += '%s and %s (%s-%s)\n' % row
+                        wins = float(row[2])
+                        games_played = float(wins + row[3])
+                        win_percentage = '%.3f' % (wins / games_played)
+                        win_percentage = str(win_percentage)[1:] if float(win_percentage) < 1 else str(win_percentage)
+                        row = row + (win_percentage, )
+                        stats += '%s and %s %s-%s (%s)\n' % row
 
                     reply = stats
 
@@ -264,7 +269,12 @@ class GameCreator(object):
                     stats = '-- FoosBot Player Records --\n\n'
                     
                     for row in result:
-                        stats += '%s (%s-%s)\n' % row
+                        wins = float(row[1])
+                        games_played = float(wins + row[2])
+                        win_percentage = '%.3f' % (wins / games_played)
+                        win_percentage = str(win_percentage)[1:] if float(win_percentage) < 1 else str(win_percentage)
+                        row = row + (win_percentage, )
+                        stats += '%s %s-%s (%s)\n' % row
 
                     reply = stats
                 
