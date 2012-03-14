@@ -195,9 +195,10 @@ class GameCreator(object):
                 elif (message == 'y' or message == 'yes') and bot.match_requested == True:
                     reply = None
                     # Do not allow a registered user to be added more than once
-                    if sender in bot.match_players:
-                        bot.send(sender, "You are already playing in the next match.")
-                        return
+                    for mp in bot.match_players:
+                        if sender in mp['jabber_id']:
+                            bot.send(sender, "You are already playing in the next match.")
+                            return
                     # Check for 4 players 
                     if len(bot.match_players) < 4:
                         bot.match_players.append({'id' : self.player_id, 'jabber_id' : sender })
