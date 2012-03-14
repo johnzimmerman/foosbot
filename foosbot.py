@@ -193,17 +193,19 @@ class GameCreator(object):
                     reply = 'Match requested. I will notify the others.'
                 
                 elif (message == 'y' or message == 'yes') and bot.match_requested == True:
+                    reply = None
                     # Do not allow a registered user to be added more than once
                     if sender in bot.match_players:
-                        #The following message won't be sent. FIX LATER
-                       reply = "You are already playing in the next match."
-
+                        bot.send(sender, "You are already playing in the next match.")
+                        return
                     # Check for 4 players 
                     if len(bot.match_players) < 4:
                         bot.match_players.append({'id' : self.player_id, 'jabber_id' : sender })
                         # notify game initiator as players join
                         bot.send(bot.match_players[0]['jabber_id'],
                                  '%s has joined the match.' % bot.active_players[sender])
+                        # notify the player
+                        reply = "You joined the match. Get ready!"
                     if len(bot.match_players) == 4:
                         # Generate teams
                         match_data = create_match(bot.match_players)
@@ -224,8 +226,6 @@ class GameCreator(object):
                         del bot.match_players[:]
                         bot.active_players.clear()
                         bot.match_requested = False
-
-                    reply = None
                 
                 elif message == "score":
                     self.entry_mode = "scoring"

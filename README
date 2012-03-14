@@ -5,6 +5,8 @@
  | | | (_) | (_) \__ \ |_) | (_) | |_ 
  |_|  \___/ \___/|___/____/ \___/ \__|
 
+
+
 We play a lot of table football (foosball) at the office. At first, one of the employees built a random team generator to mix up the teams as much as possible. After a short while that team generator grew into FoosBot, an IM bot that uses the XMPP protocol to communicate.  
 
 FoosBot allows anyone to create matches and broadcast messages when someone wants to play. The first three responders to that message will be entered into a match with the match creator. FoosBot also allows players to enter game scores while tracking win/loss records for teams and players. If you have any suggestions or feedback on FoosBot please let me know. Or, fork it and adapt it to your own needs.
