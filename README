@@ -1,4 +1,9 @@
-FoosBot
+  ______              ____        _   
+ |  ____|            |  _ \      | |  
+ | |__ ___   ___  ___| |_) | ___ | |_ 
+ |  __/ _ \ / _ \/ __|  _ < / _ \| __|
+ | | | (_) | (_) \__ \ |_) | (_) | |_ 
+ |_|  \___/ \___/|___/____/ \___/ \__|
 
 We play a lot of table football (foosball) at the office. At first, one of the employees built a random team generator to mix up the teams as much as possible. After a short while that team generator grew into FoosBot, an IM bot that uses the XMPP protocol to communicate.  
 
