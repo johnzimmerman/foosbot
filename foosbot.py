@@ -7,6 +7,7 @@ import re
 import sqlite3
 from os.path import abspath, join, dirname
 from string import Template as StringTemplate
+from threading import Timer
 
 from sleekxmpp import ClientXMPP
 from sleekxmpp.exceptions import IqError, IqTimeout
@@ -95,6 +96,11 @@ class FoosBot(object):
         for player in to:
             self.xmpp.send_message(player, message)
 
+    def set_timer(self):
+        pass
+
+    def cancel_timer(self):
+        pass
 
 
 class GameCreator(object):
