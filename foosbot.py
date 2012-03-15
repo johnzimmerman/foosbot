@@ -50,6 +50,7 @@ class FoosBot(object):
         self.active_players = {}
         self.match_players = []
         self.state_machines = {}
+        self.match_timer = None
 
 
     def start(self):
@@ -97,10 +98,21 @@ class FoosBot(object):
             self.xmpp.send_message(player, message)
 
     def set_timer(self):
-        pass
+        self.match_timer = Timer(300.0, self.send_cancellation_message).start()
 
     def cancel_timer(self):
-        pass
+        self.match_timer.cancel()
+
+    def send_cancellation_message(self):
+        message = ('I failed to find enough players in 5 minutes. The match '
+                   'has been canceled.')
+        
+        for p in self.active_players:
+            self.send(p, message)
+
+        del self.match_players[:]
+        self.active_players.clear()
+        self.match_requested = False
 
 
 class GameCreator(object):
@@ -196,6 +208,9 @@ class GameCreator(object):
                         if pj != sender:
                             bot.send(pj, message)
 
+                    # start timer
+                    bot.set_timer()
+
                     reply = 'Match requested. I will notify the others.'
                 
                 elif (message == 'y' or message == 'yes') and bot.match_requested == True:
@@ -228,8 +243,9 @@ class GameCreator(object):
                         }
                         bot.send(teams, Template("match", **tparams))
                         
-                        # Clear match/active players array and 
+                        # Cacnel timer, clear match/active players array and
                         # reset match_requested
+                        bot.cancel_timer()
                         del bot.match_players[:]
                         bot.active_players.clear()
                         bot.match_requested = False
