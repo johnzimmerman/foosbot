@@ -98,7 +98,8 @@ class FoosBot(object):
             self.xmpp.send_message(player, message)
 
     def set_timer(self):
-        self.match_timer = Timer(300.0, self.send_cancellation_message).start()
+        self.match_timer = Timer(300.0, self.send_cancellation_message)
+        self.match_timer.start()
 
     def cancel_timer(self):
         self.match_timer.cancel()
