@@ -200,7 +200,7 @@ class GameCreator(object):
                     for row in result:
                         bot.active_players[row[0]] = row[1]
 
-                    message = ("%s has challeneged you to a match of table "
+                    message = ("%s has challenged you to a match of table "
                                "football! Would you like to play? Reply with "
                                "(y)es to play.") % bot.active_players[sender]
                     
