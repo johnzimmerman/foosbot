@@ -187,10 +187,7 @@ class GameCreator(object):
                 if message == "help":
                     reply = Template("help")
                 
-                elif message == "play":
-                    pass
-                
-                elif message == "quickplay" and bot.match_requested == False:
+                elif message == "play" and bot.match_requested == False:
                     bot.match_requested = True
                     bot.match_players.append({'id' : self.player_id, 'jabber_id' : sender })
                     
