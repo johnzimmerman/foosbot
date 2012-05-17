@@ -10,9 +10,7 @@ CREATE TABLE "match" (
   id               integer PRIMARY KEY AUTOINCREMENT NOT NULL UNIQUE,
   match_datetime   datetime NOT NULL,
   team1_id         integer NOT NULL,
-  team2_id         integer NOT NULL,
-  is_bet           bool DEFAULT 0,
-  bet              varchar
+  team2_id         integer NOT NULL
 );
 CREATE TABLE team (
   id          integer PRIMARY KEY AUTOINCREMENT NOT NULL UNIQUE,
